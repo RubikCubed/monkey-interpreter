@@ -1,0 +1,38 @@
+// declaration and literals
+let str = "hello";
+let int = 5;
+let float = 2.2;
+
+// functions
+// let inc = fn(x) { x + 1 };
+
+// objects
+// let obj = { "foo": 123, "bar": 456 };
+// let foo = obj.foo;
+
+// arrays
+let arr = [1,2,3];
+// let first = array[0];
+
+// if expressions (single or ternary), binary operations and bools
+let bool = if (int > 5) {
+  true
+} else {
+  false
+};
+
+
+// loops and reassignments
+while (int > 0) {
+  puts(int);
+  int = int - 1;
+}
+
+puts("finished");
+/*
+// curried functions/closures
+let curriedAdd = fn(x) { fn(y) { x + y }};
+curriedAdd(1)(2);
+*/
+
+puts(len(arr));

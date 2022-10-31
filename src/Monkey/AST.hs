@@ -2,7 +2,7 @@ module Monkey.AST where
 
 import Data.Text (Text)
 
-type Name = String
+type Name = String -- todo: Change everything to Text / ShortText
 
 type Params = [Name]
 

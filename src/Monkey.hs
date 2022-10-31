@@ -17,6 +17,6 @@ interpret :: Text -> IO ()
 interpret src = case parse program "" src of
   Left bundle -> die $ errorBundlePretty bundle
   Right xs -> do
-    print xs
+    -- print xs
     let scope = M.fromList [("puts", Builtin Puts), ("len", Builtin Len)]
     void $ runStateT (executeStatements xs) [scope]

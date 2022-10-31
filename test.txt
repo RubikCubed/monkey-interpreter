@@ -7,12 +7,20 @@ let float = 2.2;
 // let inc = fn(x) { x + 1 };
 
 // objects
-// let obj = { "foo": 123, "bar": 456 };
-// let foo = obj.foo;
+let obj = { "foo": 123, "bar": 456 };
+puts(obj); // todo
+puts("obj.foo:");
+puts(obj.foo);
 
 // arrays
 let arr = [1,2,3];
-// let first = array[0];
+puts("arr:");
+puts(arr);
+
+puts(1["foo"]);
+
+puts("arr[2]:");
+puts(arr[2]);
 
 // if expressions (single or ternary), binary operations and bools
 let bool = if (int > 5) {
@@ -24,8 +32,7 @@ let bool = if (int > 5) {
 
 // loops and reassignments
 while (int > 0) {
-  puts(int);
-  int = int - 1;
+//  int = int - 1;
 }
 
 puts("finished");

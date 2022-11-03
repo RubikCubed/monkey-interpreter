@@ -7,7 +7,7 @@ module Monkey.Parser where
 import Control.Monad.Combinators.Expr (Operator (..), makeExprParser)
 import Data.Foldable (foldl')
 import Data.Function ((&))
-import Data.Text (Text, pack)
+import Data.Text (Text, pack, cons)
 import Data.Void
 import Monkey.AST
 import Text.Megaparsec
@@ -29,7 +29,7 @@ form :: Parser Expr
 form = do
   x <- atom
   xs <- many (call <|> index <|> access)
-  pure (foldl' (&) x xs)
+  pure (Data.Foldable.foldl' (&) x xs)
   where
     call = do
       args <- parens (expression `sepBy` symbol ",") <?> "argument list"
@@ -177,11 +177,10 @@ squiggles :: Parser a -> Parser a
 squiggles = between (symbol "{") (symbol "}")
 
 name :: Parser Name
-name =
-  lexeme $
-    (:)
-      <$> letterChar
-      <*> many alphaNumChar
+name = lexeme $ do
+  c <- letterChar
+  cs <- many alphaNumChar
+  pure $ c `cons` (pack cs)
 
 commaSep :: Parser a -> Parser [a]
 commaSep = (`sepBy` symbol ",")

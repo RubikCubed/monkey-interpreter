@@ -17,7 +17,7 @@ import Data.HashMap.Strict as H
 import Data.Hashable
 import Data.List (intercalate)
 import qualified Data.Map as M
-import Data.Text (Text, pack, unpack)
+import Data.Text (Text, unpack)
 import Data.Unique (Unique, newUnique)
 import Data.Void (Void)
 import Monkey.AST
@@ -25,7 +25,7 @@ import Text.Megaparsec (Parsec)
 
 type Parser = Parsec Void Text
 
-type Scope = M.Map String Value
+type Scope = M.Map Text Value
 
 type Interpreter = StateT [Scope] IO
 
@@ -127,7 +127,7 @@ setVar :: Name -> Value -> Interpreter ()
 setVar name value = do
   modify $ mutate name value
   where
-    mutate _ _ [] = error $ name <> " is not defined"
+    mutate _ _ [] = error $ unpack name <> " is not defined"
     mutate n v (scope : scopes) =
       if M.member n scope
         then M.insert n v scope : scopes
@@ -153,7 +153,7 @@ eval = \case
     Array u <$> traverse eval exprs
   Access obj key ->
     eval obj >>= \case
-      Object _ m -> case H.lookup (String (pack key)) m of
+      Object _ m -> case H.lookup (String key) m of
         Just v -> pure v
         Nothing -> error $ "key " <> show key <> " not found in object"
       _ -> error "can't access key on non-object"
@@ -202,10 +202,12 @@ evalInfix GreaterThan (Num x) (Num y) = Bool (x > y)
 evalInfix GreaterThan (Float x) (Float y) = Bool (x > y)
 evalInfix op x y = error $ show op <> " is not supported for " <> show x <> " and " <> show y
 
-getVar :: String -> Interpreter Value
+getVar :: Text -> Interpreter Value
 getVar n = fmap (find n) get
   where
-    find name [] = error $ name <> " is not defined"
+    find name [] = error $ unpack name <> " is not defined"
     find name (x : xs) = case M.lookup name x of
       Nothing -> find name xs
       Just v -> v
+
+      

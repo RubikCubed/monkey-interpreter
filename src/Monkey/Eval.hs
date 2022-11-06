@@ -1,4 +1,5 @@
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE RankNTypes #-}
 {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 -- temporary
 {-# OPTIONS_GHC -Wno-unused-matches #-}
@@ -77,6 +78,16 @@ instance Show Value where
       let showPair (k, v) = show k ++ ": " ++ show v
           list = fmap showPair (H.toList x)
        in "{" ++ intercalate ", " list ++ "}"
+
+-- to allow division to work nicely
+class Num a => Arith a where
+  divide :: a -> a -> a
+
+instance Arith Int where
+  divide = div
+
+instance Arith Double where
+  divide = (/)
 
 -- built in functions
 puts :: [Value] -> Interpreter Value
@@ -181,26 +192,39 @@ eval = \case
       Bool False -> maybe (pure Null) evalBlock falseBlock
       _ -> error "not a boolean."
   -- Fun Params Block ->
-  BinOp op x y -> evalInfix op <$> eval x <*> eval y
+  BinOp op x y -> binOp op <$> eval x <*> eval y
   Obj keypairs -> do
     u <- liftIO newUnique
     Object u . H.fromList <$> traverse (bitraverse eval eval) keypairs
   n -> error $ show n <> " is not supported yet"
 
-evalInfix :: BinOp -> Value -> Value -> Value
-evalInfix Plus (Num x) (Num y) = Num (x + y)
-evalInfix Plus (Float x) (Float y) = Float (x + y)
-evalInfix Times (Num x) (Num y) = Num (x * y)
-evalInfix Times (Float x) (Float y) = Float (x * y)
-evalInfix Minus (Num x) (Num y) = Num (x - y)
-evalInfix Minus (Float x) (Float y) = Float (x - y)
-evalInfix Divide (Num x) (Num y) = Num (x `div` y)
-evalInfix Divide (Float x) (Float y) = Float (x / y)
-evalInfix LessThan (Num x) (Num y) = Bool (x < y)
-evalInfix LessThan (Float x) (Float y) = Bool (x < y)
-evalInfix GreaterThan (Num x) (Num y) = Bool (x > y)
-evalInfix GreaterThan (Float x) (Float y) = Bool (x > y)
-evalInfix op x y = error $ show op <> " is not supported for " <> show x <> " and " <> show y
+binOp :: BinOp -> Value -> Value -> Value
+binOp op l r = case op of
+  Plus -> arithOp (+)
+  Minus -> arithOp (-)
+  Times -> arithOp (*)
+  Divide -> arithOp (divide)
+  LessThan -> compOp (<)
+  LessThanEqual -> compOp (<=)
+  GreaterThan -> compOp (>)
+  GreaterThanEqual -> compOp (>=)
+  Equal -> compOp (==)
+  NotEqual -> compOp (/=)
+  where
+    arithOp :: (forall a. Arith a => a -> a -> a) -> Value
+    arithOp f = case (l, r) of
+      (Num x, Num y) -> Num $ f x y
+      (Float x, Float y) -> Float $ f x y
+      (Num x, Float y) -> Float $ f (fromIntegral x) y
+      (Float x, Num y) -> Float $ f x (fromIntegral y)
+      _ -> error $ show op <> " is not supported for " <> show l <> " and " <> show r
+    compOp :: (forall a. Ord a => a -> a -> Bool) -> Value
+    compOp f = case (l, r) of
+      (Num x, Num y) -> Bool $ f x y
+      (Float x, Float y) -> Bool $ f x y
+      (Num x, Float y) -> Bool $ f (fromIntegral x) y
+      (Float x, Num y) -> Bool $ f x (fromIntegral y)
+      _ -> error $ show op <> " is not supported for " <> show l <> " and " <> show r
 
 getVar :: Text -> Interpreter Value
 getVar n = fmap (find n) get
@@ -209,5 +233,3 @@ getVar n = fmap (find n) get
     find name (x : xs) = case M.lookup name x of
       Nothing -> find name xs
       Just v -> v
-
-      

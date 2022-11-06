@@ -32,11 +32,22 @@ data Expr
   | Obj [(Expr, Expr)]
   deriving (Show, Eq)
 
+data UnOp
+  = Not
+  | Negate
+  deriving (Show, Eq)
+
 data BinOp
-  = Plus
-  | Minus
-  | Times
+  = Times
   | Divide
+  | Plus
+  | Minus
   | LessThan
+  | LessThanEqual
   | GreaterThan
+  | GreaterThanEqual
+  | Equal
+  | NotEqual
+  | And
+  | Or
   deriving (Show, Eq)

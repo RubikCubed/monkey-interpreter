@@ -7,7 +7,7 @@ module Monkey.Parser where
 import Control.Monad.Combinators.Expr (Operator (..), makeExprParser)
 import Data.Foldable (foldl')
 import Data.Function ((&))
-import Data.Text (Text, pack, cons)
+import Data.Text (Text, cons, pack)
 import Data.Void
 import Monkey.AST
 import Text.Megaparsec
@@ -20,9 +20,13 @@ expression :: Parser Expr
 expression =
   makeExprParser
     form
-    [ [InfixL (BinOp Times <$ symbol "*"), InfixL (BinOp Divide <$ symbol "/")],
+    [ [InfixL (UnOp Not <$ symbol "!"), InfixL (UnOp Negate <$ symbol "-")],
+      [InfixL (BinOp Times <$ symbol "*"), InfixL (BinOp Divide <$ symbol "/")],
       [InfixL (BinOp Plus <$ symbol "+"), InfixL (BinOp Minus <$ symbol "-")],
-      [InfixL (BinOp LessThan <$ symbol "<"), InfixL (BinOp GreaterThan <$ symbol ">")]
+      [InfixL (BinOp LessThan <$ symbol "<"), InfixL (BinOp LessThanEqual <$ symbol "<="), InfixL (BinOp GreaterThan <$ symbol ">"), InfixL (BinOp GreaterThanEqual <$ symbol ">=")],
+      [InfixL (BinOp Equal <$ symbol "=="), InfixL (BinOp NotEqual <$ symbol "!=")],
+      [InfixL (BinOp And <$ symbol "&&")],
+      [InfixL (BinOp Or <$ symbol "||")]
     ]
 
 form :: Parser Expr
@@ -145,9 +149,7 @@ functionCall = do
   pure $ Call fn args
 
 bool :: Parser Expr
-bool = do
-  b <- symbol "true" <|> symbol "false"
-  pure $ LitBool $ b == "true"
+bool = True <$ symbol "True" <|> False <$ symbol "False"
 
 var :: Parser Expr
 var = Var <$> name

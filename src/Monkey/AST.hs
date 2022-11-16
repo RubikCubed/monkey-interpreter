@@ -38,7 +38,8 @@ data UnOp
   deriving (Show, Eq)
 
 data BinOp
-  = Times
+  = Exponent
+  | Times
   | Divide
   | Plus
   | Minus

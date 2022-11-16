@@ -50,7 +50,7 @@ data Value
   | Builtin Builtin
   | Array Unique [Value]
   | Object Unique (HashMap Value Value)
-  | Function Unique [Value] [Value]
+  | Function Unique [Name] Block
 
 instance Eq Value where
   String s == String s' = s == s'
@@ -78,6 +78,9 @@ instance Show Value where
       let showPair (k, v) = show k ++ ": " ++ show v
           list = fmap showPair (H.toList x)
        in "{" ++ intercalate ", " list ++ "}"
+    Function _ _ _ -> "<function>"
+    Null -> "null"
+    Float x -> show x
 
 -- to allow division to work nicely
 class Num a => Arith a where
@@ -115,12 +118,13 @@ execute = \case
   Assign n x -> do
     v <- eval x
     void $ setVar n v
-  While x b -> do
-    v <- eval x
-    case v of
-      Bool True -> evalBlock b *> execute (While x b) -- todo: is this right?
-      Bool False -> pure ()
-      _ -> error "while condition is not a boolean"
+  While x b ->
+    newScope M.empty $ do
+      v <- eval x
+      case v of
+        Bool True -> evalBlock b *> execute (While x b) -- todo: is this right?
+        Bool False -> pure ()
+        _ -> error "while condition is not a boolean"
   Return m -> do
     v <- maybe (pure Null) eval m
     void $ pure v -- todo: does this even make sense? -- Arc: Your Interpreter monad is not yet equipped to handle early returns.
@@ -151,6 +155,11 @@ setVar n = modify . map $ M.insert n
     find name (x : xs) = case M.lookup name x of
       Nothing -> find name xs
       Just v -> v -}
+
+newScope :: Scope -> Interpreter a -> Interpreter a
+newScope scope action = do
+  modify (scope :)
+  action <* modify tail
 
 eval :: Expr -> Interpreter Value
 eval = \case
@@ -185,25 +194,31 @@ eval = \case
     eval x >>= \case
       Builtin Puts -> puts values
       Builtin Len -> len values
-      badValue -> error $ show badValue <> " is not a valid function"
+      Function _ params body -> do
+        newScope (M.fromList (zip params values)) (evalBlock body)
+      badFunc -> error $ show badFunc <> " is not a valid function"
   If expr trueBlock falseBlock ->
-    eval expr >>= \case
-      Bool True -> evalBlock trueBlock
-      Bool False -> maybe (pure Null) evalBlock falseBlock
-      _ -> error "not a boolean."
-  -- Fun Params Block ->
+    newScope M.empty $
+      eval expr >>= \case
+        Bool True -> evalBlock trueBlock
+        Bool False -> maybe (pure Null) evalBlock falseBlock
+        _ -> error "not a boolean."
+  Fun params block -> do
+      u <- liftIO newUnique
+      pure $ Function u params block
   BinOp op x y -> binOp op <$> eval x <*> eval y
   Obj keypairs -> do
     u <- liftIO newUnique
     Object u . H.fromList <$> traverse (bitraverse eval eval) keypairs
-  n -> error $ show n <> " is not supported yet"
+  --n -> error $ show n <> " is not supported yet"
 
 binOp :: BinOp -> Value -> Value -> Value
 binOp op l r = case op of
   Plus -> arithOp (+)
   Minus -> arithOp (-)
   Times -> arithOp (*)
-  Divide -> arithOp (divide)
+  Exponent -> arithOp (**)
+  Divide -> arithOp divide
   LessThan -> compOp (<)
   LessThanEqual -> compOp (<=)
   GreaterThan -> compOp (>)

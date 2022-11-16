@@ -1,6 +1,8 @@
 {-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_GHC -Wall #-}
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+{-# HLINT ignore "Avoid lambda using `infix`" #-}
 
 module Monkey.Parser where
 
@@ -20,7 +22,8 @@ expression :: Parser Expr
 expression =
   makeExprParser
     form
-    [ [InfixL (UnOp Not <$ symbol "!"), InfixL (UnOp Negate <$ symbol "-")],
+    [ 
+      [Prefix (UnOp Not <$ symbol "!"), Prefix (UnOp Negate <$ symbol "-")],
       [InfixL (BinOp Times <$ symbol "*"), InfixL (BinOp Divide <$ symbol "/")],
       [InfixL (BinOp Plus <$ symbol "+"), InfixL (BinOp Minus <$ symbol "-")],
       [InfixL (BinOp LessThan <$ symbol "<"), InfixL (BinOp LessThanEqual <$ symbol "<="), InfixL (BinOp GreaterThan <$ symbol ">"), InfixL (BinOp GreaterThanEqual <$ symbol ">=")],
@@ -99,6 +102,7 @@ assign = do
   expr <- expression
   pure $ Assign name' expr
 
+
 let_ :: Parser Statement
 let_ = do
   _ <- symbol "let"
@@ -113,6 +117,7 @@ while = do
   expr <- parens expression
   block' <- block
   pure $ While expr block'
+
 
 --  Block [Statement] (Maybe Expr)
 if_ :: Parser Expr
@@ -149,7 +154,7 @@ functionCall = do
   pure $ Call fn args
 
 bool :: Parser Expr
-bool = True <$ symbol "True" <|> False <$ symbol "False"
+bool = LitBool True <$ symbol "true" <|> LitBool False <$ symbol "false"
 
 var :: Parser Expr
 var = Var <$> name

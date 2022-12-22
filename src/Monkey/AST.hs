@@ -12,7 +12,6 @@ data Statement
   = Expr Expr
   | Let Name Expr
   | Assign Name Expr
-  | Return (Maybe Expr)
   | While Expr Block
   deriving (Show, Eq)
 
@@ -29,7 +28,9 @@ data Expr
   | If Expr Block (Maybe Block)
   | Fun Params Block
   | BinOp BinOp Expr Expr
+  | UnOp UnOp Expr
   | Obj [(Expr, Expr)]
+  | Return (Maybe Expr)
   deriving (Show, Eq)
 
 data UnOp

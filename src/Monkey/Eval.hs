@@ -3,6 +3,7 @@
 {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 -- temporary
 {-# OPTIONS_GHC -Wno-unused-matches #-}
+{-# LANGUAGE BlockArguments #-}
 
 --
 
@@ -23,12 +24,14 @@ import Data.Unique (Unique, newUnique)
 import Data.Void (Void)
 import Monkey.AST
 import Text.Megaparsec (Parsec)
+import Control.Monad.Trans.Except (ExceptT, throwE, runExceptT)
+import Control.Monad.Trans.Class (lift)
 
 type Parser = Parsec Void Text
 
 type Scope = M.Map Text Value
 
-type Interpreter = StateT [Scope] IO
+type Interpreter = ExceptT Value (StateT [Scope] IO)
 
 instance Hashable Value where
   hashWithSalt s = \case
@@ -78,7 +81,7 @@ instance Show Value where
       let showPair (k, v) = show k ++ ": " ++ show v
           list = fmap showPair (H.toList x)
        in "{" ++ intercalate ", " list ++ "}"
-    Function _ _ _ -> "<function>"
+    Function {} -> "<function>"
     Null -> "null"
     Float x -> show x
 
@@ -125,22 +128,19 @@ execute = \case
         Bool True -> evalBlock b *> execute (While x b) -- todo: is this right?
         Bool False -> pure ()
         _ -> error "while condition is not a boolean"
-  Return m -> do
-    v <- maybe (pure Null) eval m
-    void $ pure v -- todo: does this even make sense? -- Arc: Your Interpreter monad is not yet equipped to handle early returns.
     -- Fun params body -> do
     --  scope <- get
     --  _
 
 createVar :: Name -> Value -> Interpreter ()
 createVar n v = do
-  (scope : scopes) <- get
+  (scope : scopes) <- lift get
   let s = M.insert n v scope
-  put (s : scopes)
+  lift $ put (s : scopes)
 
 setVar :: Name -> Value -> Interpreter ()
 setVar name value = do
-  modify $ mutate name value
+  lift $ modify $ mutate name value
   where
     mutate _ _ [] = error $ unpack name <> " is not defined"
     mutate n v (scope : scopes) =
@@ -158,9 +158,9 @@ setVar n = modify . map $ M.insert n
 
 newScope :: Scope -> Interpreter a -> Interpreter a
 newScope scope action = do
-  modify (scope :)
-  action <* modify tail
-
+  lift $ modify (scope :)
+  action <* (lift . modify) tail
+  
 eval :: Expr -> Interpreter Value
 eval = \case
   Var x -> getVar x
@@ -194,12 +194,13 @@ eval = \case
     eval x >>= \case
       Builtin Puts -> puts values
       Builtin Len -> len values
-      Function _ params body -> do
-        newScope (M.fromList (zip params values)) (evalBlock body)
+      Function _ params body -> lift do
+        res <- runExceptT $ newScope (M.fromList (zip params values)) (evalBlock body)
+        pure (either id id res)
       badFunc -> error $ show badFunc <> " is not a valid function"
-  If expr trueBlock falseBlock ->
-    newScope M.empty $
-      eval expr >>= \case
+  If expr trueBlock falseBlock -> do
+    result <- newScope M.empty (eval expr)
+    case result of
         Bool True -> evalBlock trueBlock
         Bool False -> maybe (pure Null) evalBlock falseBlock
         _ -> error "not a boolean."
@@ -207,17 +208,30 @@ eval = \case
       u <- liftIO newUnique
       pure $ Function u params block
   BinOp op x y -> binOp op <$> eval x <*> eval y
+  UnOp op x -> unOp op <$> eval x
   Obj keypairs -> do
     u <- liftIO newUnique
     Object u . H.fromList <$> traverse (bitraverse eval eval) keypairs
-  --n -> error $ show n <> " is not supported yet"
+  Return m -> do
+    v <- maybe (pure Null) eval m
+    throwE v
+
+unOp :: UnOp -> Value -> Value
+unOp op x = case op of
+  Not -> case x of
+    Bool b -> Bool $ not b
+    _ -> error "can't negate non-boolean"
+  Negate -> case x of
+    Num n -> Num $ negate n
+    Float n -> Float $ negate n
+    _ -> error "can't negate non-number"
 
 binOp :: BinOp -> Value -> Value -> Value
 binOp op l r = case op of
   Plus -> arithOp (+)
   Minus -> arithOp (-)
   Times -> arithOp (*)
-  Exponent -> arithOp (**)
+  -- Exponent -> arithOp (**)
   Divide -> arithOp divide
   LessThan -> compOp (<)
   LessThanEqual -> compOp (<=)
@@ -242,7 +256,7 @@ binOp op l r = case op of
       _ -> error $ show op <> " is not supported for " <> show l <> " and " <> show r
 
 getVar :: Text -> Interpreter Value
-getVar n = fmap (find n) get
+getVar n = fmap (find n) (lift get)
   where
     find name [] = error $ unpack name <> " is not defined"
     find name (x : xs) = case M.lookup name x of

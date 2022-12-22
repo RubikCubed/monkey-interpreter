@@ -1,45 +1,13 @@
-// declaration and literals
-let str = "hello";
-let int = 5;
-let float = 2.2;
+puts("start");
 
-// functions
-// let inc = fn(x) { x + 1 };
-
-// objects
-let obj = { "foo": 123, "bar": 456 };
-puts(obj); // todo
-puts("obj.foo:");
-puts(obj.foo);
-
-// arrays
-let arr = [1,2,3];
-puts("arr:");
-puts(arr);
-
-puts(1["foo"]);
-
-puts("arr[2]:");
-puts(arr[2]);
-
-// if expressions (single or ternary), binary operations and bools
-let bool = if (int > 5) {
-  true
-} else {
-  false
+let f = fn() {
+  let x = 42;
+  return x;
+  puts("this shouldn't happen");
 };
 
+puts("pre call");
+let x = f();
 
-// loops and reassignments
-while (int > 0) {
-//  int = int - 1;
-}
-
-puts("finished");
-/*
-// curried functions/closures
-let curriedAdd = fn(x) { fn(y) { x + y }};
-curriedAdd(1)(2);
-*/
-
-puts(len(arr));
+puts("post call");
+puts(x);

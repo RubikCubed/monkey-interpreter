@@ -56,6 +56,7 @@ atom =
       arr,
       obj,
       function,
+      return_,
       string_,
       bool,
       if_,
@@ -70,7 +71,6 @@ statement =
   choice
     [ let_ <* semicolon,
       try (assign <* semicolon),
-      return_ <* semicolon,
       while,
       try (Expr <$> expression <* semicolon)
     ]
@@ -86,7 +86,7 @@ obj = do
   _ <- symbol "{"
   props <- commaSep prop
   _ <- symbol "}"
-  pure $ Obj $ props
+  pure $ Obj props
 
 prop :: Parser (Expr, Expr)
 prop = do
@@ -99,8 +99,7 @@ assign :: Parser Statement
 assign = do
   name' <- name
   _ <- symbol "="
-  expr <- expression
-  pure $ Assign name' expr
+  Assign name' <$> expression
 
 
 let_ :: Parser Statement
@@ -108,16 +107,13 @@ let_ = do
   _ <- symbol "let"
   name' <- name
   _ <- symbol "="
-  expr <- expression
-  pure $ Let name' expr
+  Let name' <$> expression
 
 while :: Parser Statement
 while = do
   _ <- symbol "while"
   expr <- parens expression
-  block' <- block
-  pure $ While expr block'
-
+  While expr <$> block
 
 --  Block [Statement] (Maybe Expr)
 if_ :: Parser Expr
@@ -134,7 +130,7 @@ block = squiggles $ do
   ret <- optional expression
   pure $ Block stmts ret
 
-return_ :: Parser Statement
+return_ :: Parser Expr
 return_ = do
   _ <- symbol "return"
   expr <- optional expression
@@ -144,8 +140,7 @@ function :: Parser Expr
 function = do
   _ <- symbol "fn"
   args <- parens $ commaSep name
-  body <- block
-  pure $ Fun args body
+  Fun args <$> block
 
 functionCall :: Parser Expr
 functionCall = do
@@ -187,7 +182,7 @@ name :: Parser Name
 name = lexeme $ do
   c <- letterChar
   cs <- many alphaNumChar
-  pure $ c `cons` (pack cs)
+  pure $ c `cons` pack cs
 
 commaSep :: Parser a -> Parser [a]
 commaSep = (`sepBy` symbol ",")

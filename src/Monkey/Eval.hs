@@ -42,7 +42,7 @@ instance Hashable Value where
     Float f -> s `hashWithSalt` (4 :: Int) `hashWithSalt` f
     Array u _ -> s `hashWithSalt` (5 :: Int) `hashWithSalt` u
     Object u _ -> s `hashWithSalt` (6 :: Int) `hashWithSalt` u
-    Function u _ _ -> s `hashWithSalt` (7 :: Int) `hashWithSalt` u
+    Function u _ _ _ -> s `hashWithSalt` (7 :: Int) `hashWithSalt` u
 
 data Value
   = Null
@@ -53,7 +53,7 @@ data Value
   | Builtin Builtin
   | Array Unique [Value]
   | Object Unique (HashMap Value Value)
-  | Function Unique [Name] Block
+  | Function Unique Scope [Name] Block
 
 instance Eq Value where
   String s == String s' = s == s'
@@ -62,7 +62,7 @@ instance Eq Value where
   Bool b == Bool b' = b == b'
   Array u _ == Array u' _ = u == u'
   Object u _ == Object u' _ = u == u'
-  Function u _ _ == Function u' _ _ = u == u'
+  Function u _ _ _ == Function u' _ _ _ = u == u'
   Null == Null = True
   _ == _ = False
 
@@ -160,7 +160,7 @@ newScope :: Scope -> Interpreter a -> Interpreter a
 newScope scope action = do
   lift $ modify (scope :)
   action <* (lift . modify) tail
-  
+
 eval :: Expr -> Interpreter Value
 eval = \case
   Var x -> getVar x
@@ -194,8 +194,9 @@ eval = \case
     eval x >>= \case
       Builtin Puts -> puts values
       Builtin Len -> len values
-      Function _ params body -> lift do
-        res <- runExceptT $ newScope (M.fromList (zip params values)) (evalBlock body)
+      Function _ scope params body -> lift do
+        let scope' = M.fromList (zip params values) <> scope
+        res <- runExceptT $ evalBlock body
         pure (either id id res)
       badFunc -> error $ show badFunc <> " is not a valid function"
   If expr trueBlock falseBlock -> do
@@ -206,7 +207,8 @@ eval = \case
         _ -> error "not a boolean."
   Fun params block -> do
       u <- liftIO newUnique
-      pure $ Function u params block
+      scopes <- lift get
+      pure $ Function u (M.unions scopes) params block
   BinOp op x y -> binOp op <$> eval x <*> eval y
   UnOp op x -> unOp op <$> eval x
   Obj keypairs -> do

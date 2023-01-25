@@ -1,9 +1,9 @@
+{-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE RankNTypes #-}
 {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 -- temporary
 {-# OPTIONS_GHC -Wno-unused-matches #-}
-{-# LANGUAGE BlockArguments #-}
 
 --
 
@@ -11,6 +11,8 @@ module Monkey.Eval where
 
 import Control.Monad (void)
 import Control.Monad.IO.Class (MonadIO (liftIO))
+import Control.Monad.Trans.Class (lift)
+import Control.Monad.Trans.Except (ExceptT, runExceptT, throwE)
 import Control.Monad.Trans.State
 import Data.Bitraversable (Bitraversable (bitraverse))
 import Data.Foldable (traverse_)
@@ -24,8 +26,6 @@ import Data.Unique (Unique, newUnique)
 import Data.Void (Void)
 import Monkey.AST
 import Text.Megaparsec (Parsec)
-import Control.Monad.Trans.Except (ExceptT, throwE, runExceptT)
-import Control.Monad.Trans.Class (lift)
 
 type Parser = Parsec Void Text
 
@@ -128,9 +128,10 @@ execute = \case
         Bool True -> evalBlock b *> execute (While x b) -- todo: is this right?
         Bool False -> pure ()
         _ -> error "while condition is not a boolean"
-    -- Fun params body -> do
-    --  scope <- get
-    --  _
+
+-- Fun params body -> do
+--  scope <- get
+--  _
 
 createVar :: Name -> Value -> Interpreter ()
 createVar n v = do
@@ -195,20 +196,23 @@ eval = \case
       Builtin Puts -> puts values
       Builtin Len -> len values
       Function _ scope params body -> lift do
-        let scope' = M.fromList (zip params values) <> scope
-        res <- runExceptT $ evalBlock body
+        let env = M.fromList (zip params values) <> scope
+        s <- get
+        put [env]
+        res <- runExceptT (evalBlock body)
+        put s
         pure (either id id res)
       badFunc -> error $ show badFunc <> " is not a valid function"
   If expr trueBlock falseBlock -> do
     result <- newScope M.empty (eval expr)
     case result of
-        Bool True -> evalBlock trueBlock
-        Bool False -> maybe (pure Null) evalBlock falseBlock
-        _ -> error "not a boolean."
+      Bool True -> evalBlock trueBlock
+      Bool False -> maybe (pure Null) evalBlock falseBlock
+      _ -> error "not a boolean."
   Fun params block -> do
-      u <- liftIO newUnique
-      scopes <- lift get
-      pure $ Function u (M.unions scopes) params block
+    u <- liftIO newUnique
+    scopes <- lift get
+    pure $ Function u (M.unions scopes) params block
   BinOp op x y -> binOp op <$> eval x <*> eval y
   UnOp op x -> unOp op <$> eval x
   Obj keypairs -> do

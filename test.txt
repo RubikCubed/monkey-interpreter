@@ -1,13 +1,12 @@
-puts("start");
-
-let f = fn() {
-  let x = 42;
-  return x;
-  puts("this shouldn't happen");
+let counter = fn(z) {
+  let x = z;
+  return fn() {
+    let r = x;
+    x = x + 1;
+    return r;
+  };
 };
-
-puts("pre call");
-let x = f();
-
-puts("post call");
-puts(x);
+let x = counter(0);
+puts(x());
+puts(x());
+puts(x());

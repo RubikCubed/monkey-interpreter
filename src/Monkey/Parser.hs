@@ -2,6 +2,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_GHC -Wall #-}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+
 {-# HLINT ignore "Avoid lambda using `infix`" #-}
 
 module Monkey.Parser where
@@ -22,8 +23,7 @@ expression :: Parser Expr
 expression =
   makeExprParser
     form
-    [ 
-      [Prefix (UnOp Not <$ symbol "!"), Prefix (UnOp Negate <$ symbol "-")],
+    [ [Prefix (UnOp Not <$ symbol "!"), Prefix (UnOp Negate <$ symbol "-")],
       [InfixL (BinOp Times <$ symbol "*"), InfixL (BinOp Divide <$ symbol "/")],
       [InfixL (BinOp Plus <$ symbol "+"), InfixL (BinOp Minus <$ symbol "-")],
       [InfixL (BinOp LessThan <$ symbol "<"), InfixL (BinOp LessThanEqual <$ symbol "<="), InfixL (BinOp GreaterThan <$ symbol ">"), InfixL (BinOp GreaterThanEqual <$ symbol ">=")],
@@ -76,7 +76,7 @@ statement =
     ]
 
 program :: Parser [Statement]
-program = hidden sc *> many statement
+program = hidden sc *> many statement <* eof
 
 semicolon :: Parser ()
 semicolon = skipSome $ symbol ";"
@@ -100,7 +100,6 @@ assign = do
   name' <- name
   _ <- symbol "="
   Assign name' <$> expression
-
 
 let_ :: Parser Statement
 let_ = do

@@ -2,10 +2,6 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE RankNTypes #-}
 {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
--- temporary
-{-# OPTIONS_GHC -Wno-unused-matches #-}
-
---
 
 module Monkey.Eval where
 
@@ -19,6 +15,7 @@ import Data.Foldable (traverse_)
 import Data.Functor (($>))
 import Data.HashMap.Strict as H
 import Data.Hashable
+import Data.IORef
 import Data.List (intercalate)
 import qualified Data.Map as M
 import Data.Text (Text, unpack)
@@ -29,7 +26,7 @@ import Text.Megaparsec (Parsec)
 
 type Parser = Parsec Void Text
 
-type Scope = M.Map Text Value
+type Scope = M.Map Text (IORef Value)
 
 type Interpreter = ExceptT Value (StateT [Scope] IO)
 
@@ -136,26 +133,19 @@ execute = \case
 createVar :: Name -> Value -> Interpreter ()
 createVar n v = do
   (scope : scopes) <- lift get
-  let s = M.insert n v scope
+  ref <- liftIO $ newIORef v
+  let s = M.insert n ref scope
   lift $ put (s : scopes)
 
 setVar :: Name -> Value -> Interpreter ()
-setVar name value = do
-  lift $ modify $ mutate name value
+setVar name value =
+  lift get >>= mutate name value
   where
     mutate _ _ [] = error $ unpack name <> " is not defined"
     mutate n v (scope : scopes) =
-      if M.member n scope
-        then M.insert n v scope : scopes
-        else scope : mutate n v scopes
-
-{-
-setVar n = modify . map $ M.insert n
-  where
-    find name [] = error $ name <> " is not defined"
-    find name (x : xs) = case M.lookup name x of
-      Nothing -> find name xs
-      Just v -> v -}
+      case M.lookup n scope of
+        Just ref -> liftIO $ writeIORef ref value
+        Nothing -> mutate n v scopes
 
 newScope :: Scope -> Interpreter a -> Interpreter a
 newScope scope action = do
@@ -196,7 +186,8 @@ eval = \case
       Builtin Puts -> puts values
       Builtin Len -> len values
       Function _ scope params body -> lift do
-        let env = M.fromList (zip params values) <> scope
+        vals <- traverse (liftIO . newIORef) values
+        let env = scope <> M.fromList (zip params vals)
         s <- get
         put [env]
         res <- runExceptT (evalBlock body)
@@ -262,9 +253,11 @@ binOp op l r = case op of
       _ -> error $ show op <> " is not supported for " <> show l <> " and " <> show r
 
 getVar :: Text -> Interpreter Value
-getVar n = fmap (find n) (lift get)
+getVar n = do
+  env <- lift get
+  liftIO $ find n env
   where
     find name [] = error $ unpack name <> " is not defined"
     find name (x : xs) = case M.lookup name x of
       Nothing -> find name xs
-      Just v -> v
+      Just ref -> readIORef ref

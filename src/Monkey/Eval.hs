@@ -1,7 +1,6 @@
 {-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE RankNTypes #-}
-{-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 
 module Monkey.Eval where
 
@@ -12,17 +11,18 @@ import Control.Monad.Trans.Except (ExceptT, runExceptT, throwE)
 import Control.Monad.Trans.State
 import Data.Bitraversable (Bitraversable (bitraverse))
 import Data.Foldable (traverse_)
-import Data.Functor (($>))
 import Data.HashMap.Strict as H
 import Data.Hashable
 import Data.IORef
-import Data.List (intercalate)
 import qualified Data.Map as M
 import Data.Text (Text, unpack)
 import Data.Unique (Unique, newUnique)
 import Data.Void (Void)
 import Monkey.AST
 import Text.Megaparsec (Parsec)
+import qualified Data.Vector.Mutable as MV
+import qualified Data.Vector as V
+import Data.List (intercalate)
 
 type Parser = Parsec Void Text
 
@@ -40,6 +40,7 @@ instance Hashable Value where
     Array u _ -> s `hashWithSalt` (5 :: Int) `hashWithSalt` u
     Object u _ -> s `hashWithSalt` (6 :: Int) `hashWithSalt` u
     Function u _ _ _ -> s `hashWithSalt` (7 :: Int) `hashWithSalt` u
+    Builtin _ -> s `hashWithSalt` (8 :: Int) -- TODO: This will probably cause all builtins to be equal?
 
 data Value
   = Null
@@ -48,8 +49,8 @@ data Value
   | Bool Bool
   | Float Double
   | Builtin Builtin
-  | Array Unique [Value]
-  | Object Unique (HashMap Value Value)
+  | Array Unique (MV.IOVector Value)
+  | Object Unique (IORef (HashMap Value Value))
   | Function Unique Scope [Name] Block
 
 instance Eq Value where
@@ -67,7 +68,7 @@ data Builtin
   = Puts
   | Len
 
-instance Show Value where
+{- instance Show Value where
   show = \case
     Array _ x -> show x
     Bool x -> show x
@@ -76,11 +77,11 @@ instance Show Value where
     String x -> unpack x
     Object _ x ->
       let showPair (k, v) = show k ++ ": " ++ show v
-          list = fmap showPair (H.toList x)
+          list = fmap showPair . H.toList . unsafePerformIO $ readIORef x
        in "{" ++ intercalate ", " list ++ "}"
     Function {} -> "<function>"
     Null -> "null"
-    Float x -> show x
+    Float x -> show x -}
 
 -- to allow division to work nicely
 class Num a => Arith a where
@@ -92,13 +93,37 @@ instance Arith Int where
 instance Arith Double where
   divide = (/)
 
+pprint :: Value -> IO String
+pprint = \case
+  Null -> pure "null"
+  String x -> pure $ '"' : unpack x ++ "\""
+  Num x -> pure $ show x
+  Bool x -> pure $ show x
+  Float x -> pure $ show x
+  Builtin _ -> pure "<builtin>"
+  Array _ xs -> do
+    xs' <- V.toList <$> V.freeze xs
+    list <- traverse pprint xs'
+    pure $ "[" ++ intercalate ", " list ++ "]"
+  Object _ x -> do
+    x' <- readIORef x
+    list <- traverse (\(k, v) -> (++) <$> pprint k <*> ((": " ++) <$> pprint v)) $ H.toList x'
+    pure $ "{" ++ intercalate ", " list ++ "}"
+  Function {} -> pure "<function>"
+
+
 -- built in functions
 puts :: [Value] -> Interpreter Value
-puts xs = liftIO (traverse_ print xs) $> Null
+puts xs = liftIO do
+  strs <- traverse pprint xs
+  traverse_ putStrLn strs
+  pure Null
 
 len :: [Value] -> Interpreter Value
-len (Array _ xs : _) = pure . Num . length $ xs
-len val = error $ "can't call len on " <> show val
+--len (Array _ xs : _) = pure . Num . length $ xs
+--len val = error $ "can't call len on " <> show val
+len [Array _ xs] = pure $ Num $ MV.length xs
+len _ = error "len takes a string, array, or object"
 
 executeStatements :: [Statement] -> Interpreter ()
 executeStatements = traverse_ execute
@@ -115,20 +140,31 @@ execute = \case
   Let n x -> do
     v <- eval x
     void $ createVar n v
-  Assign n x -> do
-    v <- eval x
-    void $ setVar n v
+  Assign lhs rhs -> do
+    case lhs of
+      Var n -> do
+        v <- eval rhs
+        setVar n v
+      Index x ix -> eval x >>= \case
+        Array _ xs -> eval ix >>= \case
+          Num i -> do
+            val <- eval rhs
+            liftIO $ MV.write xs i val
+          _ -> error "index must be a number"
+        _ -> error "can't index non-array or non-object"
+      Access x field -> eval x >>= \case
+        Object _ ref -> do
+          val <- eval rhs
+          liftIO $ modifyIORef ref $ H.insert (String field) val
+        _ -> error "can't access non-object"
+      _ -> error "invalid assignment"
   While x b ->
     newScope M.empty $ do
       v <- eval x
       case v of
-        Bool True -> evalBlock b *> execute (While x b) -- todo: is this right?
+        Bool True -> evalBlock b *> execute (While x b)
         Bool False -> pure ()
         _ -> error "while condition is not a boolean"
-
--- Fun params body -> do
---  scope <- get
---  _
 
 createVar :: Name -> Value -> Interpreter ()
 createVar n v = do
@@ -159,27 +195,37 @@ eval = \case
   LitFLoat x -> pure $ Float x
   LitBool x -> pure $ Bool x
   LitString x -> pure $ String x
-  LitArray exprs -> do
+  LitArray x -> do
     u <- liftIO newUnique
-    Array u <$> traverse eval exprs
+    vals <- traverse eval x
+    xs <- V.thaw vals
+    pure $ Array u xs
   Access obj key ->
     eval obj >>= \case
-      Object _ m -> case H.lookup (String key) m of
-        Just v -> pure v
-        Nothing -> error $ "key " <> show key <> " not found in object"
+      Object _ m -> do
+        h <- liftIO $ readIORef m
+        case H.lookup (String key) h of
+          Just v -> pure v
+          Nothing -> error $ "key " <> show key <> " not found in object"
       _ -> error "can't access key on non-object"
   Index obj key ->
     eval obj >>= \case
       Array _ xs ->
         eval key >>= \case
-          Num i -> pure $ xs !! i
+          Num i -> MV.read xs i
           _ -> error "index must be a number"
       Object _ hashmap -> do
         k <- eval key
-        case H.lookup k hashmap of
+        h <- liftIO $ readIORef hashmap
+        case H.lookup k h of
           Just v -> pure v
-          Nothing -> error $ "key " <> show key <> " not found in object"
-      _ -> error "can't access properties of non-object"
+          Nothing -> do
+            k' <- liftIO $ pprint k
+            error $ "key " <> k' <> " not found in object"
+      -- use liftIO / pprint
+      bad -> do
+        bad' <- liftIO $ pprint bad
+        error $ "can't index " <> bad' <> ", not an array or object"
   Call x args -> do
     values <- traverse eval args
     eval x >>= \case
@@ -193,7 +239,9 @@ eval = \case
         res <- runExceptT (evalBlock body)
         put s
         pure (either id id res)
-      badFunc -> error $ show badFunc <> " is not a valid function"
+      badFunc -> do
+        badFunc' <- liftIO $ pprint badFunc
+        error $ "can't call " <> badFunc' <> ", not a function"
   If expr trueBlock falseBlock -> do
     result <- newScope M.empty (eval expr)
     case result of
@@ -208,7 +256,9 @@ eval = \case
   UnOp op x -> unOp op <$> eval x
   Obj keypairs -> do
     u <- liftIO newUnique
-    Object u . H.fromList <$> traverse (bitraverse eval eval) keypairs
+    h <- H.fromList <$> traverse (bitraverse eval eval) keypairs
+    ref <- liftIO $ newIORef h
+    pure $ Object u ref
   Return m -> do
     v <- maybe (pure Null) eval m
     throwE v
@@ -236,6 +286,12 @@ binOp op l r = case op of
   GreaterThanEqual -> compOp (>=)
   Equal -> compOp (==)
   NotEqual -> compOp (/=)
+  And -> case (l, r) of
+    (Bool x, Bool y) -> Bool $ x && y
+    _ -> error "can't and non-booleans"
+  Or -> case (l, r) of
+    (Bool x, Bool y) -> Bool $ x || y
+    _ -> error "can't or non-booleans"
   where
     arithOp :: (forall a. Arith a => a -> a -> a) -> Value
     arithOp f = case (l, r) of
@@ -243,14 +299,15 @@ binOp op l r = case op of
       (Float x, Float y) -> Float $ f x y
       (Num x, Float y) -> Float $ f (fromIntegral x) y
       (Float x, Num y) -> Float $ f x (fromIntegral y)
-      _ -> error $ show op <> " is not supported for " <> show l <> " and " <> show r
+      _ -> error $ show op <> " is not supported for the supplied values"
     compOp :: (forall a. Ord a => a -> a -> Bool) -> Value
     compOp f = case (l, r) of
       (Num x, Num y) -> Bool $ f x y
       (Float x, Float y) -> Bool $ f x y
       (Num x, Float y) -> Bool $ f (fromIntegral x) y
       (Float x, Num y) -> Bool $ f x (fromIntegral y)
-      _ -> error $ show op <> " is not supported for " <> show l <> " and " <> show r
+      _ -> error $ show op <> " is not supported for the supplied values"
+        -- error $ show op <> " is not supported for " <> show l <> " and " <> show r
 
 getVar :: Text -> Interpreter Value
 getVar n = do

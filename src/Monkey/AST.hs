@@ -1,6 +1,7 @@
 module Monkey.AST where
 
 import Data.Text (Text)
+import Data.Vector (Vector)
 
 type Name = Text
 
@@ -11,7 +12,7 @@ data Block = Block [Statement] (Maybe Expr) deriving (Show, Eq)
 data Statement
   = Expr Expr
   | Let Name Expr
-  | Assign Name Expr
+  | Assign Expr Expr
   | While Expr Block
   deriving (Show, Eq)
 
@@ -21,7 +22,7 @@ data Expr
   | LitFLoat Double
   | LitBool Bool
   | LitString Text
-  | LitArray [Expr]
+  | LitArray (Vector Expr)
   | Access Expr Name
   | Index Expr Expr
   | Call Expr [Expr]
@@ -39,8 +40,7 @@ data UnOp
   deriving (Show, Eq)
 
 data BinOp
-  = Exponent
-  | Times
+  = Times
   | Divide
   | Plus
   | Minus

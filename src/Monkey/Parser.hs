@@ -16,6 +16,7 @@ import Monkey.AST
 import Text.Megaparsec
 import Text.Megaparsec.Char
 import qualified Text.Megaparsec.Char.Lexer as L
+import Data.Vector (fromList)
 
 type Parser = Parsec Void Text
 
@@ -26,7 +27,7 @@ expression =
     [ [Prefix (UnOp Not <$ symbol "!"), Prefix (UnOp Negate <$ symbol "-")],
       [InfixL (BinOp Times <$ symbol "*"), InfixL (BinOp Divide <$ symbol "/")],
       [InfixL (BinOp Plus <$ symbol "+"), InfixL (BinOp Minus <$ symbol "-")],
-      [InfixL (BinOp LessThan <$ symbol "<"), InfixL (BinOp LessThanEqual <$ symbol "<="), InfixL (BinOp GreaterThan <$ symbol ">"), InfixL (BinOp GreaterThanEqual <$ symbol ">=")],
+      [InfixL (BinOp LessThanEqual <$ symbol "<="), InfixL (BinOp GreaterThanEqual <$ symbol ">="), InfixL (BinOp LessThan <$ symbol "<"), InfixL (BinOp GreaterThan <$ symbol ">")],
       [InfixL (BinOp Equal <$ symbol "=="), InfixL (BinOp NotEqual <$ symbol "!=")],
       [InfixL (BinOp And <$ symbol "&&")],
       [InfixL (BinOp Or <$ symbol "||")]
@@ -97,9 +98,9 @@ prop = do
 
 assign :: Parser Statement
 assign = do
-  name' <- name
+  lhs <- form
   _ <- symbol "="
-  Assign name' <$> expression
+  Assign lhs <$> expression
 
 let_ :: Parser Statement
 let_ = do
@@ -165,7 +166,7 @@ float :: Parser Expr
 float = LitFLoat <$> lexeme L.float
 
 arr :: Parser Expr
-arr = LitArray <$> brackets (commaSep expression)
+arr = LitArray . fromList <$> brackets (commaSep expression)
 
 -- helper functions
 brackets :: Parser a -> Parser a

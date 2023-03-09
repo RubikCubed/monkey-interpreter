@@ -1,12 +1,23 @@
-let counter = fn(z) {
-  let x = z;
-  return fn() {
-    let r = x;
-    x = x + 1;
-    return r;
-  };
+let data = { "people": [ { "name": "John", "age": 20 }, { "name": "Jane", "age": 30 } ] };
+
+puts(data);
+
+
+let getName = fn (person) {
+  return person.name;
 };
-let x = counter(0);
-puts(x());
-puts(x());
-puts(x());
+
+let map = fn (f, arr) {
+  let i = 0;
+  let result = arr;
+
+  while (i < len(arr)) {
+    result[i] = f(arr[i]);
+    i = i + 1;
+  }
+  
+  return result;
+};
+
+puts(map(getName, data.people));
+puts(data);

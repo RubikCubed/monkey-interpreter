@@ -12,7 +12,7 @@ data Block = Block [Statement] (Maybe Expr) deriving (Show, Eq)
 data Statement
   = Expr Expr
   | Let Name Expr
-  | Assign Expr Expr
+  | Assign Expr Expr (Maybe BinOp)
   | While Expr Block
   deriving (Show, Eq)
 

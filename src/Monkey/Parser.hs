@@ -99,8 +99,11 @@ prop = do
 assign :: Parser Statement
 assign = do
   lhs <- form
-  _ <- symbol "="
-  Assign lhs <$> expression
+  op <- lexeme do
+    op <- optional $ choice [Plus <$ symbol "+", Minus <$ symbol "-", Times <$ symbol "*"]
+    _ <- char '='
+    pure op
+  Assign lhs <$> expression <*> pure op
 
 let_ :: Parser Statement
 let_ = do

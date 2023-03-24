@@ -3,7 +3,7 @@
 
   outputs = { self, nixpkgs }@inputs:
     let
-      ghcVersion = "ghc924";
+      ghcVersion = "ghc92";
       system = "x86_64-linux";
       pkgs = nixpkgs.legacyPackages.${system};
       ghc = pkgs.haskell.packages.${ghcVersion};

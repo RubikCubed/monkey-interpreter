@@ -140,7 +140,7 @@ execute = \case
   Let n x -> do
     v <- eval x
     void $ createVar n v
-  Assign lhs rhs -> do
+  Assign lhs rhs _ -> do
     case lhs of
       Var n -> do
         v <- eval rhs

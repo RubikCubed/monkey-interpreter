@@ -1,4 +1,4 @@
-let data = { "people": [ { "name": "John", "age": 20 }, { "name": "Jane", "age": 30 } ] };
+/* let data = { "people": [ { "name": "John", "age": 20 }, { "name": "Jane", "age": 30 } ] };
 
 puts(data);
 
@@ -21,3 +21,8 @@ let map = fn (f, arr) {
 
 puts(map(getName, data.people));
 puts(data);
+ */
+ 
+let foo = 5;
+foo += 5;
+puts(foo);

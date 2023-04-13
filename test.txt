@@ -1,28 +1,20 @@
-/* let data = { "people": [ { "name": "John", "age": 20 }, { "name": "Jane", "age": 30 } ] };
+let x = 1;
 
-puts(data);
-
-
-let getName = fn (person) {
-  return person.name;
-};
-
-let map = fn (f, arr) {
-  let i = 0;
-  let result = arr;
-
-  while (i < len(arr)) {
-    result[i] = f(arr[i]);
-    i = i + 1;
-  }
-  
-  return result;
-};
-
-puts(map(getName, data.people));
-puts(data);
- */
- 
 let foo = 5;
-foo += 5;
-puts(foo);
+
+let main = fn () {
+  foo += 5;
+  puts(foo);
+};
+
+let z = {"foo": 123, "barzz": [1,2,3]};
+let s = "hello\nworld";
+
+
+let i = 5;
+while (i > 0) {
+  if (true) {
+    puts("hey");
+    i = i - 1;
+  }
+}

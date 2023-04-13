@@ -166,7 +166,7 @@ int :: Parser Expr
 int = LitInt <$> lexeme L.decimal
 
 float :: Parser Expr
-float = LitFLoat <$> lexeme L.float
+float = LitFloat <$> lexeme L.float
 
 arr :: Parser Expr
 arr = LitArray . fromList <$> brackets (commaSep expression)

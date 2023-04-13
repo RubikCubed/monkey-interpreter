@@ -14,12 +14,13 @@ data Statement
   | Let Name Expr
   | Assign Expr Expr (Maybe BinOp)
   | While Expr Block
+  | Block' Block
   deriving (Show, Eq)
 
 data Expr
   = Var Name
   | LitInt Int
-  | LitFLoat Double
+  | LitFloat Double
   | LitBool Bool
   | LitString Text
   | LitArray (Vector Expr)

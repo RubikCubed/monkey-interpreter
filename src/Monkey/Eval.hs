@@ -23,6 +23,8 @@ import Text.Megaparsec (Parsec)
 import qualified Data.Vector.Mutable as MV
 import qualified Data.Vector as V
 import Data.List (intercalate)
+import Control.Exception (assert)
+import Data.Maybe (isNothing)
 
 type Parser = Parsec Void Text
 
@@ -140,7 +142,7 @@ execute = \case
   Let n x -> do
     v <- eval x
     void $ createVar n v
-  Assign lhs rhs _ -> do
+  Assign lhs rhs op -> assert (isNothing op) do
     case lhs of
       Var n -> do
         v <- eval rhs
@@ -165,6 +167,7 @@ execute = \case
         Bool True -> evalBlock b *> execute (While x b)
         Bool False -> pure ()
         _ -> error "while condition is not a boolean"
+  Block' b -> newScope M.empty $ void $ evalBlock b
 
 createVar :: Name -> Value -> Interpreter ()
 createVar n v = do
@@ -192,7 +195,7 @@ eval :: Expr -> Interpreter Value
 eval = \case
   Var x -> getVar x
   LitInt x -> pure $ Num x
-  LitFLoat x -> pure $ Float x
+  LitFloat x -> pure $ Float x
   LitBool x -> pure $ Bool x
   LitString x -> pure $ String x
   LitArray x -> do

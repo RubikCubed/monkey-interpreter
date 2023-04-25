@@ -275,6 +275,7 @@ unOp op x = case op of
     Num n -> Num $ negate n
     Float n -> Float $ negate n
     _ -> error "can't negate non-number"
+  _ -> error "unimplemented"
 
 binOp :: BinOp -> Value -> Value -> Value
 binOp op l r = case op of

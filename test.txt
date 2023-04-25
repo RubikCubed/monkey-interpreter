@@ -1,20 +1,6 @@
-let x = 1;
-
-let foo = 5;
-
-let main = fn () {
-  foo += 5;
-  puts(foo);
-};
-
-let z = {"foo": 123, "barzz": [1,2,3]};
-let s = "hello\nworld";
-
-
 let i = 5;
+
 while (i > 0) {
-  if (true) {
-    puts("hey");
-    i = i - 1;
-  }
+  i --;
+  console.log(i);
 }

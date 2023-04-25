@@ -4,7 +4,6 @@
 module Monkey.Desugar where
 
 import Monkey.AST
-    ( Block(Block), Expr(..), Statement(..) )
 import Data.Bifunctor (bimap)
 
 desugarStatements :: [Statement] -> [Statement]
@@ -25,7 +24,10 @@ desugarExpression = \case
   Call x args -> Call (desugarExpression x) (fmap desugarExpression args)
   If x b1 b2 -> If (desugarExpression x) (desugarBlock b1) (fmap desugarBlock b2)
   BinOp op x y -> BinOp op (desugarExpression x) (desugarExpression y)
-  UnOp op x -> UnOp op $ desugarExpression x
+  UnOp op x -> case op of
+    Increment -> BinOp Plus x (LitInt 1)
+    Decrement -> BinOp Minus x (LitInt 1)
+    _ -> UnOp op $ desugarExpression x
   Obj xs -> Obj $ fmap (bimap desugarExpression desugarExpression) xs
   Return x -> Return $ fmap desugarExpression x
   x -> x

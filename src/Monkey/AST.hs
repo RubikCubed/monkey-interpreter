@@ -38,6 +38,8 @@ data Expr
 data UnOp
   = Not
   | Negate
+  | Increment
+  | Decrement
   deriving (Show, Eq)
 
 data BinOp

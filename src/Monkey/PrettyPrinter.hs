@@ -30,7 +30,6 @@ instance Ppr Statement where
     Let n x -> kw "let" <+> pretty n <+> "=" <+> ppr x <> semi
     Assign lhs rhs op -> ppr lhs <+> foldMap ppr op <> "=" <+> ppr rhs <> semi
     While x b -> kw "while" <+> ppr x <+> ppr b
-    Block' b -> ppr b
 
 instance Ppr Expr where
   ppr :: Expr -> Doc Highlight
@@ -56,6 +55,8 @@ instance Ppr Expr where
     Return x -> kw "return" <+> foldMap ppr x
     Access x y -> ppr x <> "." <> pretty y
     Index x y -> ppr x <> "[" <> ppr y <> "]"
+    Block' b -> ppr b
+
 
 instance Ppr Block where
   ppr :: Block -> Doc Highlight
@@ -87,6 +88,10 @@ instance Ppr UnOp where
   ppr = \case
     Not -> "!"
     Negate -> "-"
+    PreIncrement -> "++"
+    PreDecrement -> "--"
+    PostIncrement -> "++"
+    PostDecrement -> "--"
 
 data Highlight
   = Keyword

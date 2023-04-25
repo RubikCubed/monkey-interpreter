@@ -1,6 +1,13 @@
-let i = 5;
+// pretend it reads from stdin or generates a random int or something
+let maps = [ {"foo": 1}, {"baz": 2} ];
+let ix = 0;
 
-while (i > 0) {
-  i --;
-  console.log(i);
-}
+let getMap = fn() {
+  let r = maps[ix];
+  ix += 1;
+  return r;
+};
+
+getMap().foo += 1;
+
+puts(maps);

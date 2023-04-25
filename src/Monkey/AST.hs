@@ -14,7 +14,6 @@ data Statement
   | Let Name Expr
   | Assign Expr Expr (Maybe BinOp)
   | While Expr Block
-  | Block' Block
   deriving (Show, Eq)
 
 data Expr
@@ -33,13 +32,16 @@ data Expr
   | UnOp UnOp Expr
   | Obj [(Expr, Expr)]
   | Return (Maybe Expr)
+  | Block' Block
   deriving (Show, Eq)
 
 data UnOp
   = Not
   | Negate
-  | Increment
-  | Decrement
+  | PreIncrement
+  | PreDecrement
+  | PostIncrement
+  | PostDecrement
   deriving (Show, Eq)
 
 data BinOp

@@ -167,7 +167,6 @@ execute = \case
         Bool True -> evalBlock b *> execute (While x b)
         Bool False -> pure ()
         _ -> error "while condition is not a boolean"
-  Block' b -> newScope M.empty $ void $ evalBlock b
 
 createVar :: Name -> Value -> Interpreter ()
 createVar n v = do
@@ -265,6 +264,8 @@ eval = \case
   Return m -> do
     v <- maybe (pure Null) eval m
     throwE v
+  Block' b -> newScope M.empty $ evalBlock b
+
 
 unOp :: UnOp -> Value -> Value
 unOp op x = case op of

@@ -1,13 +1,15 @@
 // pretend it reads from stdin or generates a random int or something
-let maps = [ {"foo": 1}, {"baz": 2} ];
 let ix = 0;
 
-let getMap = fn() {
-  let r = maps[ix];
+let s = fn() {
+  let r = ix;
   ix += 1;
   return r;
 };
 
-getMap().foo += 1;
+let xs = [[0, 1], [2, 3]];
 
-puts(maps);
+xs[s()][s()] += 1;
+
+
+puts(xs);

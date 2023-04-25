@@ -8,9 +8,9 @@ import Data.Bifunctor (bimap)
 
 desugarStatements :: [Statement] -> [Statement]
 desugarStatements = fmap $ \case  -- Assign x (BinOp op x y) Nothing
-  Assign x@(Var _) y (Just op) -> Expr $ Block' $ Block [Let "tmp" x, Assign x (BinOp op (Var "tmp") y) Nothing] Nothing
-  Assign (Index obj key) y (Just op) -> Expr $ Block' $ Block [Let "s" obj, Let "ix" key, Assign (Index (Var "s") (Var "ix")) (BinOp op (Index (Var "s") (Var "ix")) y) Nothing] Nothing
-  Assign (Access obj key) y (Just op) -> Expr $ Block' $ Block [Let "s" obj, Assign (Access (Var "s") key) (BinOp op (Access (Var "s") key) y) Nothing] Nothing
+  Assign x@(Var _) y (Just op) -> Expr $ Block' $ Block [Let "$tmp" x, Assign x (BinOp op (Var "$tmp") y) Nothing] Nothing
+  Assign (Index obj key) y (Just op) -> Expr $ Block' $ Block [Let "$s" obj, Let "$ix" key, Assign (Index (Var "$s") (Var "$ix")) (BinOp op (Index (Var "$s") (Var "$ix")) y) Nothing] Nothing
+  Assign (Access obj key) y (Just op) -> Expr $ Block' $ Block [Let "$s" obj, Assign (Access (Var "$s") key) (BinOp op (Access (Var "$s") key) y) Nothing] Nothing
   Assign x y z -> Assign x y z
   While x b -> While x $ desugarBlock b
   Expr x -> Expr $ desugarExpression x
